@@ -1,2 +1,2 @@
-# IIBproject_MIMOin5G6G
+# Nokia IIB Project
 Cambridge Engineering IIB project repository
