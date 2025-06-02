@@ -1,6 +1,6 @@
 simParameters = struct();       % Clear simParameters variable to contain all key simulation parameters 
 simParameters.NFrames = 1;      % Number of 10 ms frames
-simParameters.SNRIn = -5:1:25; % SNR range (dB)
+simParameters.SNRIn = 25; % SNR range (dB)
 simParameters.PerfectChannelEstimator = true;
 simParameters.DisplaySimulationInformation = true;
 simParameters.DisplayDiagnostics = false;
@@ -26,10 +26,10 @@ simParameters.PDSCH.PRBSet = 0:simParameters.Carrier.NSizeGrid-1;
 simParameters.PDSCH.NID = simParameters.Carrier.NCellID;
 simParameters.PDSCH.RNTI = 1;
 
-simParameters.PDSCH.NumLayers = 8;
+simParameters.PDSCH.NumLayers = 4;
 
 simParameters.PDSCH.DMRS.DMRSTypeAPosition       = 2; % Mapping type A only. First DM-RS symbol position (2,3)
-simParameters.PDSCH.DMRS.DMRSLength              = 2; % Number of front-loaded DM-RS symbols (1(single symbol),2(double symbol))
+simParameters.PDSCH.DMRS.DMRSLength              = 1; % Number of front-loaded DM-RS symbols (1(single symbol),2(double symbol))
 simParameters.PDSCH.DMRS.DMRSAdditionalPosition  = 1; % Additional DM-RS symbol positions (max range 0...3)
 simParameters.PDSCH.DMRS.DMRSConfigurationType   = 1; % DM-RS configuration type (1,2)
 simParameters.PDSCH.DMRS.NumCDMGroupsWithoutData = 3; % CDM groups without data (1,2,3)
@@ -51,21 +51,21 @@ simParameters.PDSCHExtension.MaximumLDPCIterationCount = 6;
 simParameters.TransmitAntennaArray = struct('Size',[8 4 2 8 1], ... % [8 2 2 8 1] for 4Tx, [8 4 2 8 1] for 8Tx
         'ElementSpacing',[0.5 0.5 4 1], ...
         'PolarizationAngles', [-45 45], ...
-        'Orientation', [0; 13.1; 0], ...
+        'Orientation', [0; 10; 0], ...
         'Element', '38.901', ...
         'PolarizationModel', 'Model-2'); 
-simParameters.ReceiveAntennaArray = struct('Size',[2 2 2 1 1], ... % [2 1 2 1 1] for 4Rx, [2 2 2 1 1] for 8Rx
+simParameters.ReceiveAntennaArray = struct('Size',[2 1 2 1 1], ... % [2 1 2 1 1] for 4Rx, [2 2 2 1 1] for 8Rx
         'ElementSpacing',[0.5 0.5 1 1], ...
         'PolarizationAngles', [-45 45], ...
-        'Orientation', [180; 13.1; 0], ...
+        'Orientation', [180; 0; 0], ...
         'Element', 'isotropic', ...
         'PolarizationModel', 'Model-2');
 
-simParameters.TransmitAntennaArray.NumPanels        = 1; % Number of panels in horizontal dimension (Ng)
+simParameters.TransmitAntennaArray.NumPanels        = 4; % Number of panels in horizontal dimension (Ng)
 simParameters.TransmitAntennaArray.PanelDimensions  = [4 1]; % Number of columns and rows in a panel (N1, N2)
 simParameters.TransmitAntennaArray.NumPolarizations = 2; % Number of transmit polarizations
 simParameters.ReceiveAntennaArray.NumPanels         = 1; % Number of panels in horizontal dimension (Ng)
-simParameters.ReceiveAntennaArray.PanelDimensions   = [4 1];                % Number of columns and rows in a panel (N1, N2)
+simParameters.ReceiveAntennaArray.PanelDimensions   = [2 2];                % Number of columns and rows in a panel (N1, N2)
 simParameters.ReceiveAntennaArray.NumPolarizations  = 2; % Number of receive polarizations
 
 simParameters.NTxAnts = numAntennaElements(simParameters.TransmitAntennaArray);
@@ -73,10 +73,10 @@ simParameters.NRxAnts = numAntennaElements(simParameters.ReceiveAntennaArray);
 
 simParameters.CSIRS = nrCSIRSConfig;
 simParameters.CSIRS.CSIRSType = 'nzp'; % 'nzp','zp'
-simParameters.CSIRS.RowNumber = 6; % 4 for 4 CSI, 6 for 8 CSI
+simParameters.CSIRS.RowNumber = 16; % 4 for 4 CSI, 6 for 8 CSI
 simParameters.CSIRS.NumRB = simParameters.Carrier.NSizeGrid - simParameters.CSIRS.RBOffset;
 simParameters.CSIRS.CSIRSPeriod = 'on';
-simParameters.CSIRS.SymbolLocations = 13;
+simParameters.CSIRS.SymbolLocations = [2, 4];
 simParameters.CSIRS.SubcarrierLocations = [0,3,6,9]; % 0 or [0,3,6,9]
 simParameters.CSIRS.Density = 'one';
 
@@ -94,13 +94,13 @@ simParameters.CSIReportConfig.Period = [5 0];  % Peridocity and offset of the CS
 
 if simParameters.CSIReportMode == "RI-PMI-CQI"  
     
-    riRestrict = zeros(1,8);
+    riRestrict = zeros(1,4);
     riRestrict(simParameters.PDSCH.NumLayers) = 1;
 
     simParameters.CSIReportConfig.CQITable          = "Table3"; % 'Table1','Table2','Table3'
     simParameters.CSIReportConfig.CQIMode           = 'Wideband'; % 'Wideband','Subband'
     simParameters.CSIReportConfig.PMIMode           = 'Subband'; % 'Wideband','Subband'
-    simParameters.CSIReportConfig.CodebookType      = 'Type1SinglePanel'; % 'Type1SinglePanel','Type1MultiPanel','Type2'
+    simParameters.CSIReportConfig.CodebookType      = 'Type1MultiPanel'; % 'Type1SinglePanel','Type1MultiPanel','Type2'
     simParameters.CSIReportConfig.SubbandSize       = 4; % Subband size in RB (4,8,16,32)
     simParameters.CSIReportConfig.CodebookMode      = 1; % 1,2
     simParameters.CSIReportConfig.RIRestriction     = riRestrict;                   % Empty for no rank restriction
@@ -161,8 +161,8 @@ maxThroughputPar = zeros(numel(simParameters.SNRIn),1);
 CSIReportPar = cell(numel(simParameters.SNRIn),1);
 blerPar = zeros(numel(simParameters.SNRIn),1);
 
-%for snrIdx = 1:numel(simParameters.SNRIn)
-parfor snrIdx = 1:numel(simParameters.SNRIn)
+for snrIdx = 1:numel(simParameters.SNRIn)
+%parfor snrIdx = 1:numel(simParameters.SNRIn)
 % To reduce the total simulation time, you can execute this loop in
 % parallel by using the Parallel Computing Toolbox. Comment out the 'for'
 % statement and uncomment the 'parfor' statement.
@@ -238,13 +238,13 @@ parfor snrIdx = 1:numel(simParameters.SNRIn)
             end
             encodeDLSCH.TargetCodeRate = pdschextra.TargetCodeRate;
         end
-
         % Create an OFDM resource grid for a slot
         dlGrid = nrResourceGrid(carrier,csirs.NumCSIRSPorts);
 
         % CSI-RS mapping to the slot resource grid
         [csirsInd,csirsInfo] = nrCSIRSIndices(carrier,csirs);
         csirsSym = nrCSIRS(carrier,csirs);
+
         dlGrid(csirsInd) = csirsSym;
         csirsTransmission = ~isempty(csirsInd);
 
@@ -291,9 +291,8 @@ parfor snrIdx = 1:numel(simParameters.SNRIn)
         % OFDM modulation
         txWaveform = nrOFDMModulate(carrier, dlGrid);  % [N × 8], where 8 = virtual ports
         
-        % Map to physical antenna ports (512)
-        txWaveform = txWaveform * simParameters.WtxVirtual';  % [N × 512]
-        
+        txWaveform = txWaveform * simParameters.WtxVirtual.';
+
         % Pad to flush channel memory
         txWaveform = [txWaveform; zeros(maxChDelay, size(txWaveform,2))];
         
@@ -365,7 +364,7 @@ parfor snrIdx = 1:numel(simParameters.SNRIn)
             
             % Get PDSCH resource elements from the received grid and
             % channel estimate
-            [pdschRx,pdschHest] = nrExtractResources(pdschIndices,rxGrid,Hest);
+            [pdschRx,pdschHest,~,pdschHestIndices] = nrExtractResources(pdschIndices,rxGrid,Hest);
         end
 
         % Equalization
@@ -480,7 +479,7 @@ simResults.maxThroughput = maxThroughput;
 simResults.bler         = bler;
 
 resultsFolder = './results/';
-filename = sprintf('simResult_HARQ_perfectCSI_perfectestimator_%s_%dTx_%dRx_%dLayer_%dHz.mat', ...
+filename = sprintf('simResult_1Y8Txsubarray_%s_%dTx_%dRx_%dLayer_%dHz.mat', ...
     simParameters.DelayProfile, simParameters.NTxAnts, simParameters.NRxAnts, simParameters.PDSCH.NumLayers, simParameters.MaximumDopplerShift);
 fullPath = fullfile(resultsFolder, filename);
 
@@ -509,7 +508,7 @@ function [carrier,eDLSCH,pdsch,pdschextra,csirs,wtx] = setupTransmitter(simParam
     eDLSCH = nrDLSCH;
     
     % Normalize columns
-    wtx = simParameters.WtxVirtual;
+    wtx = 1;
     
 end
 
@@ -605,8 +604,12 @@ function [channel, simParameters] = createChannel(simParameters)
         
         % Steering vectors using manual position-based approach
         steeringVecs = zeros(numElements, numVirtualPorts);
-        steeringDir = [0; 0];  % Broadside (az=0, el=0)
         
+        azAngles = linspace(-45, 45, 4);  % Horizontal directions
+        elAngles = linspace(-5, -25, 2);  % Elevation: shallow to steep downward
+        [AZ, EL] = meshgrid(azAngles, elAngles);
+        steeringDir = [AZ(:)'; EL(:)'];  % Shape: [2 × 8] → 8 beam directions
+
         for i = 1:numVirtualPorts
             pos = elementPos(:, subarrayMap{i});  % [3 × subarraySize]
             a = steervec(pos, steeringDir);       % [subarraySize × 1]
@@ -614,7 +617,7 @@ function [channel, simParameters] = createChannel(simParameters)
         end
         
         % Normalize
-        WtxVirtual = steeringVecs ./ vecnorm(steeringVecs);
+        WtxVirtual = steeringVecs / norm(steeringVecs, 'fro');
         
         % Store results
         simParameters.WtxVirtual = WtxVirtual;

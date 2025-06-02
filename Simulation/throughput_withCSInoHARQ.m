@@ -1,6 +1,6 @@
 simParameters = struct();       % Clear simParameters variable to contain all key simulation parameters 
-simParameters.NFrames = 50;      % Number of 10 ms frames
-simParameters.SNRIn = -5:1:25; % SNR range (dB)
+simParameters.NFrames = 1;      % Number of 10 ms frames
+simParameters.SNRIn = -5:5:25; % SNR range (dB)
 simParameters.PerfectChannelEstimator = true;
 simParameters.DisplaySimulationInformation = true;
 simParameters.DisplayDiagnostics = false;
@@ -26,10 +26,10 @@ simParameters.PDSCH.PRBSet = 0:simParameters.Carrier.NSizeGrid-1;
 simParameters.PDSCH.NID = simParameters.Carrier.NCellID;
 simParameters.PDSCH.RNTI = 1;
 
-simParameters.PDSCH.NumLayers = 4;
+simParameters.PDSCH.NumLayers = 8;
 
 simParameters.PDSCH.DMRS.DMRSTypeAPosition       = 2; % Mapping type A only. First DM-RS symbol position (2,3)
-simParameters.PDSCH.DMRS.DMRSLength              = 1; % Number of front-loaded DM-RS symbols (1(single symbol),2(double symbol))
+simParameters.PDSCH.DMRS.DMRSLength              = 2; % Number of front-loaded DM-RS symbols (1(single symbol),2(double symbol))
 simParameters.PDSCH.DMRS.DMRSAdditionalPosition  = 1; % Additional DM-RS symbol positions (max range 0...3)
 simParameters.PDSCH.DMRS.DMRSConfigurationType   = 1; % DM-RS configuration type (1,2)
 simParameters.PDSCH.DMRS.NumCDMGroupsWithoutData = 3; % CDM groups without data (1,2,3)
@@ -59,7 +59,7 @@ simParameters.TransmitAntennaArray.NumPanels        = 1; % Number of panels in h
 simParameters.TransmitAntennaArray.PanelDimensions  = [4 1]; % Number of columns and rows in a panel (N1, N2)
 simParameters.TransmitAntennaArray.NumPolarizations = 2; % Number of transmit polarizations
 simParameters.ReceiveAntennaArray.NumPanels         = 1; % Number of panels in horizontal dimension (Ng)
-simParameters.ReceiveAntennaArray.PanelDimensions   = [2 1];                % Number of columns and rows in a panel (N1, N2)
+simParameters.ReceiveAntennaArray.PanelDimensions   = [4 1];                % Number of columns and rows in a panel (N1, N2)
 simParameters.ReceiveAntennaArray.NumPolarizations  = 2; % Number of receive polarizations
 
 simParameters.NTxAnts = numAntennaElements(simParameters.TransmitAntennaArray);

@@ -1,5 +1,11 @@
+p = gcp('nocreate');    % get current pool (or empty if none)
+if ~isempty(p)
+    delete(p);
+end
+parpool('Processes', 8);
+
 simParameters = struct();       % Clear simParameters variable to contain all key simulation parameters 
-simParameters.NFrames = 50;      % Number of 10 ms frames
+simParameters.NFrames = 1;      % Number of 10 ms frames
 simParameters.SNRIn = -5:1:25; % SNR range (dB)
 simParameters.PerfectChannelEstimator = true;
 simParameters.DisplaySimulationInformation = true;
@@ -97,14 +103,14 @@ if simParameters.CSIReportMode == "RI-PMI-CQI"
     simParameters.CSIReportConfig.CodebookType      = 'Type1SinglePanel'; % 'Type1SinglePanel','Type1MultiPanel','Type2'
     simParameters.CSIReportConfig.SubbandSize       = 4; % Subband size in RB (4,8,16,32)
     simParameters.CSIReportConfig.CodebookMode      = 1; % 1,2
-    simParameters.CSIReportConfig.RIRestriction     = riRestrict;                   % Empty for no rank restriction
+    simParameters.CSIReportConfig.RIRestriction     = riRestrict;                   % riRestrict for layer fixing, [] for RI
     simParameters.CSIReportConfig.NumberOfBeams     = 2; % 2,3,4. Only for Type II codebooks
     simParameters.CSIReportConfig.PhaseAlphabetSize = 8; % 4,8. Only for Type II codebooks
     simParameters.CSIReportConfig.SubbandAmplitude  = true;                  % true/false. Only for Type II codebooks
     simParameters.CSIReportConfig.NStartBWP         = [];                   % Empty to signal the entire carrier
     simParameters.CSIReportConfig.NSizeBWP          = [];                   % Empty to signal the entire carrier
     
-    simParameters.CSIReportConfig.PMIModeOverride = 'random';  % 'best','random','fixed'
+    simParameters.CSIReportConfig.PMIModeOverride = 'best';  % 'best','random','fixed'
     simParameters.CSIReportConfig.FixedPMI       = 3;       % zero‐based PMI if you choose 'fixed'
 
     % Configure the CSI report with the antenna panel dimensions specified
@@ -166,21 +172,24 @@ parfor snrIdx = 1:numel(simParameters.SNRIn)
     [csiReports, Hest] = initialCSIReport(simParamLocal,snrIdx,carrier,csirs,channel,csiFeedbackOpts);
     csiAvailableSlots = 0;
 
-    mode      = simParameters.CSIReportConfig.PMIModeOverride;
-    reportCfg = simParameters.CSIReportConfig;
-    nLayers   = pdsch.NumLayers;
 
-    switch lower(mode)
-      case 'best'
-        % do nothing, keep the UE‐chosen W in csiReport.W
+    if simParameters.CSIReportMode == "RI-PMI-CQI"
+        mode      = simParameters.CSIReportConfig.PMIModeOverride;
+        reportCfg = simParameters.CSIReportConfig;
+        nLayers   = pdsch.NumLayers;
     
-      case 'random'
-        % replace with truly random PMI
-        [~,info]      = hDLPMIRandom(carrier, csirs, reportCfg, nLayers, Hest);
-        csiReports.W   = info.W;
-
-      otherwise
-        error('Unknown PMI override mode "%s".',mode);
+        switch lower(mode)
+          case 'best'
+            % do nothing, keep the UE‐chosen W in csiReport.W
+        
+          case 'random'
+            % replace with truly random PMI
+            [~,info]      = hDLPMIRandom(carrier, csirs, reportCfg, nLayers, Hest);
+            csiReports.W   = info.W;
+    
+          otherwise
+            error('Unknown PMI override mode "%s".',mode);
+        end
     end
 
     % Total number of slots in the simulation period
@@ -428,7 +437,7 @@ simResults.maxThroughput = maxThroughput;
 simResults.bler         = bler;
 
 resultsFolder = './results/';
-filename = sprintf('simResult_noHARQ_imperfectCSI_%s_%dTx_%dRx_%dLayer_%dHz.mat', ...
+filename = sprintf('simResult_noHARQ_test_%s_%dTx_%dRx_%dLayer_%dHz.mat', ...
     simParameters.DelayProfile, simParameters.NTxAnts, simParameters.NRxAnts, simParameters.PDSCH.NumLayers, simParameters.MaximumDopplerShift);
 fullPath = fullfile(resultsFolder, filename);
 

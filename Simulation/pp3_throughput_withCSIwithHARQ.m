@@ -2,12 +2,12 @@
 % if ~isempty(p)
 %     delete(p);
 % end
-% parpool('Processes', 8);
+% parpool('Processes', 31);
 
 simParameters = struct();       % Clear simParameters variable to contain all key simulation parameters 
 simParameters.NFrames = 1;      % Number of 10 ms frames
 simParameters.SNRIn = -5:1:25; % SNR range (dB)
-simParameters.PerfectChannelEstimator = true;
+simParameters.PerfectChannelEstimator = false;
 simParameters.DisplaySimulationInformation = true;
 simParameters.DisplayDiagnostics = false;
 
@@ -68,7 +68,7 @@ simParameters.ReceiveAntennaArray = struct('Size',[2 1 2 1 1], ... % [2 1 2 1 1]
         'PolarizationModel', 'Model-2');
 
 simParameters.TransmitAntennaArray.NumPanels        = 1; % Number of panels in horizontal dimension (Ng)
-simParameters.TransmitAntennaArray.PanelDimensions  = [2 1]; % Number of columns and rows in a panel (N1, N2)
+simParameters.TransmitAntennaArray.PanelDimensions  = [4 1]; % Number of columns and rows in a panel (N1, N2)
 simParameters.TransmitAntennaArray.NumPolarizations = 2; % Number of transmit polarizations
 simParameters.ReceiveAntennaArray.NumPanels         = 1; % Number of panels in horizontal dimension (Ng)
 simParameters.ReceiveAntennaArray.PanelDimensions   = [2 1];                % Number of columns and rows in a panel (N1, N2)
@@ -79,11 +79,11 @@ simParameters.NRxAnts = numAntennaElements(simParameters.ReceiveAntennaArray);
 
 simParameters.CSIRS = nrCSIRSConfig;
 simParameters.CSIRS.CSIRSType = 'nzp'; % 'nzp','zp'
-simParameters.CSIRS.RowNumber = 4; % 4 for 4 CSI, 6 for 8 CSI
+simParameters.CSIRS.RowNumber = 6; % 4 for 4 CSI, 6 for 8 CSI
 simParameters.CSIRS.NumRB = simParameters.Carrier.NSizeGrid - simParameters.CSIRS.RBOffset;
 simParameters.CSIRS.CSIRSPeriod = 'on';
 simParameters.CSIRS.SymbolLocations = 13;
-simParameters.CSIRS.SubcarrierLocations = 0; % 0 or [0,3,6,9]
+simParameters.CSIRS.SubcarrierLocations = [0,3,6,9]; % 0 or [0,3,6,9]
 simParameters.CSIRS.Density = 'one';
 
 disp(['Number of CSI-RS ports: ' num2str(simParameters.CSIRS.NumCSIRSPorts) '.'])
@@ -109,7 +109,7 @@ if simParameters.CSIReportMode == "RI-PMI-CQI"
     simParameters.CSIReportConfig.CodebookType      = 'Type1SinglePanel'; % 'Type1SinglePanel','Type1MultiPanel','Type2'
     simParameters.CSIReportConfig.SubbandSize       = 4; % Subband size in RB (4,8,16,32)
     simParameters.CSIReportConfig.CodebookMode      = 1; % 1,2
-    simParameters.CSIReportConfig.RIRestriction     = [];                   % Empty for no rank restriction
+    simParameters.CSIReportConfig.RIRestriction     = riRestrict;                   % Empty for no rank restriction
     simParameters.CSIReportConfig.NumberOfBeams     = 2; % 2,3,4. Only for Type II codebooks
     simParameters.CSIReportConfig.PhaseAlphabetSize = 8; % 4,8. Only for Type II codebooks
     simParameters.CSIReportConfig.SubbandAmplitude  = true;                  % true/false. Only for Type II codebooks
@@ -137,7 +137,7 @@ end
 simParameters.UEProcessingDelay = 7;
 simParameters.BSProcessingDelay = 1;
 
-simParameters.DelayProfile = 'CDL-C';   % 'CDL-A',...,'CDL-E','TDL-A',...,'TDL-E'
+simParameters.DelayProfile = 'TDL-C';   % 'CDL-A',...,'CDL-E','TDL-A',...,'TDL-E'
 simParameters.DelaySpread = 300e-9;     % s
 simParameters.MaximumDopplerShift = 10;  % Hz
 
@@ -474,7 +474,7 @@ simResults.maxThroughput = maxThroughput;
 simResults.bler         = bler;
 
 resultsFolder = './results/';
-filename = sprintf('simResult_HARQ_RIPMIrandom_perfectestimator_%s_%dTx_%dRx_%dLayer_%dHz.mat', ...
+filename = sprintf('simResult_HARQ_fixedRIPMIrandom_%s_%dTx_%dRx_%dLayer_%dHz.mat', ...
     simParameters.DelayProfile, simParameters.NTxAnts, simParameters.NRxAnts, simParameters.PDSCH.NumLayers, simParameters.MaximumDopplerShift);
 fullPath = fullfile(resultsFolder, filename);
 
@@ -621,7 +621,11 @@ function [channel,maxChannelDelay,N0] = setupChannel(simParameters,snrIdx)
     % Also normalize by the number of receive antennas if the channel
     % applies this normalization to the output
     if channel.NormalizeChannelOutputs
-        N0 = N0/sqrt(chInfo.NumOutputSignals);
+        if isfield(chInfo, 'NumOutputSignals')
+            N0 = N0 / sqrt(chInfo.NumOutputSignals);
+        else
+            N0 = N0;  % Or leave unchanged
+        end
     end
 
 end

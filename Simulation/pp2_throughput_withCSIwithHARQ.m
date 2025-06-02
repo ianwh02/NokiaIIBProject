@@ -5,9 +5,9 @@
 % parpool('Processes', 8);
 
 simParameters = struct();       % Clear simParameters variable to contain all key simulation parameters 
-simParameters.NFrames = 1;      % Number of 10 ms frames
+simParameters.NFrames = 50;      % Number of 10 ms frames
 simParameters.SNRIn = -5:1:25; % SNR range (dB)
-simParameters.PerfectChannelEstimator = true;
+simParameters.PerfectChannelEstimator = false;
 simParameters.DisplaySimulationInformation = true;
 simParameters.DisplayDiagnostics = false;
 
@@ -49,7 +49,11 @@ simParameters.PDSCHExtension.EnableHARQ       = true;    % enable retransmission
 simParameters.PDSCHExtension.EnableCBGTransmission = true; % Enable CBG-based transmission, otherwise TB-based transmission
 simParameters.PDSCHExtension.MaxNumCBG = 4;          % Maximum number of CBGs per transport block for each HARQ process in CBG-based transmission
 simParameters.PDSCHExtension.RVSequence       = [0 2 3 1]; % standard 4-RV cycle
-simParameters.PDSCHExtension.TargetCodeRate = 567/1024;
+if simParameters.PDSCH.NumCodewords > 1
+    simParameters.PDSCHExtension.TargetCodeRate = [567/1024, 567/1024];
+else 
+    simParameters.PDSCHExtension.TargetCodeRate = 567/1024;
+end
 
 simParameters.PDSCHExtension.LDPCDecodingAlgorithm = "Layered belief propagation";
 simParameters.PDSCHExtension.MaximumLDPCIterationCount = 6;
@@ -60,7 +64,7 @@ simParameters.TransmitAntennaArray = struct('Size',[8 4 2 8 1], ... % [8 2 2 8 1
         'Orientation', [0; 13.1; 0], ...
         'Element', '38.901', ...
         'PolarizationModel', 'Model-2'); 
-simParameters.ReceiveAntennaArray = struct('Size',[2 1 2 1 1], ... % [2 1 2 1 1] for 4Rx, [2 2 2 1 1] for 8Rx
+simParameters.ReceiveAntennaArray = struct('Size',[2 2 2 1 1], ... % [2 1 2 1 1] for 4Rx, [2 2 2 1 1] for 8Rx
         'ElementSpacing',[0.5 0.5 1 1], ...
         'PolarizationAngles', [-45 45], ...
         'Orientation', [180; 13.1; 0], ...
@@ -102,6 +106,7 @@ if simParameters.CSIReportMode == "RI-PMI-CQI"
     
     riRestrict = zeros(1,8);
     riRestrict(simParameters.PDSCH.NumLayers) = 1;
+    disp(riRestrict);
 
     simParameters.CSIReportConfig.CQITable          = "Table3"; % 'Table1','Table2','Table3'
     simParameters.CSIReportConfig.CQIMode           = 'Wideband'; % 'Wideband','Subband'
@@ -109,7 +114,7 @@ if simParameters.CSIReportMode == "RI-PMI-CQI"
     simParameters.CSIReportConfig.CodebookType      = 'Type1SinglePanel'; % 'Type1SinglePanel','Type1MultiPanel','Type2'
     simParameters.CSIReportConfig.SubbandSize       = 4; % Subband size in RB (4,8,16,32)
     simParameters.CSIReportConfig.CodebookMode      = 1; % 1,2
-    simParameters.CSIReportConfig.RIRestriction     = [];                   % Empty for no rank restriction
+    simParameters.CSIReportConfig.RIRestriction     = riRestrict;                   % Empty for no rank restriction
     simParameters.CSIReportConfig.NumberOfBeams     = 2; % 2,3,4. Only for Type II codebooks
     simParameters.CSIReportConfig.PhaseAlphabetSize = 8; % 4,8. Only for Type II codebooks
     simParameters.CSIReportConfig.SubbandAmplitude  = true;                  % true/false. Only for Type II codebooks
@@ -154,18 +159,24 @@ decodeDLSCH.TargetCodeRate         = simParameters.PDSCHExtension.TargetCodeRate
 decodeDLSCH.LDPCDecodingAlgorithm = simParameters.PDSCHExtension.LDPCDecodingAlgorithm;
 decodeDLSCH.MaximumLDPCIterationCount = simParameters.PDSCHExtension.MaximumLDPCIterationCount;
 
-errorBlocksPar = zeros(numel(simParameters.SNRIn),1);
-totalBlocksPar = zeros(numel(simParameters.SNRIn),1);
-simThroughputPar = zeros(numel(simParameters.SNRIn),1);
-maxThroughputPar = zeros(numel(simParameters.SNRIn),1);
+errorBlocksPar = zeros(numel(simParameters.SNRIn),simParameters.PDSCH.NumCodewords);
+totalBlocksPar = zeros(numel(simParameters.SNRIn),simParameters.PDSCH.NumCodewords);
+simThroughputPar = zeros(numel(simParameters.SNRIn),simParameters.PDSCH.NumCodewords);
+maxThroughputPar = zeros(numel(simParameters.SNRIn),simParameters.PDSCH.NumCodewords);
 CSIReportPar = cell(numel(simParameters.SNRIn),1);
-blerPar = zeros(numel(simParameters.SNRIn),1);
+blerPar = zeros(numel(simParameters.SNRIn),simParameters.PDSCH.NumCodewords);
 
 %for snrIdx = 1:numel(simParameters.SNRIn)
 parfor snrIdx = 1:numel(simParameters.SNRIn)
 % To reduce the total simulation time, you can execute this loop in
 % parallel by using the Parallel Computing Toolbox. Comment out the 'for'
 % statement and uncomment the 'parfor' statement.
+    simThroughputTemp = zeros(1, simParameters.PDSCH.NumCodewords);
+    maxThroughputTemp = zeros(1, simParameters.PDSCH.NumCodewords);
+    blerTemp = zeros(1, simParameters.PDSCH.NumCodewords);
+    simThroughput = zeros(1, simParameters.PDSCH.NumCodewords);
+    maxThroughput = zeros(1, simParameters.PDSCH.NumCodewords);
+    bler = zeros(1, simParameters.PDSCH.NumCodewords);
     
     % Reset the random number generator for repeatability
     rng(snrIdx + 1000, "twister")
@@ -381,24 +392,27 @@ parfor snrIdx = 1:numel(simParameters.SNRIn)
             eqCSIScaling{cwIdx} = repmat(eqCSIScaling{cwIdx}.',Qm,1);      % expand by each bit per symbol
             dlschLLRs{cwIdx} = dlschLLRs{cwIdx} .* eqCSIScaling{cwIdx}(:); % scale LLRs
         end
-        
+
         % Decode DL-SCH
-        decodeDLSCH.TransportBlockLength = trBlkSizes;
-        [rxBits, blkerr] = decodeDLSCH(dlschLLRs, pdsch.Modulation, pdsch.NumLayers, harqEntity.RedundancyVersion);
-        
+        decodeDLSCH.TransportBlockLength = trBlkSizes(cwIdx);
+        [rxBits, blkerr] = decodeDLSCH(dlschLLRs, pdsch.Modulation, pdsch.NumLayers, RVs);
+
         % Update HARQ state
         status = updateAndAdvance(harqEntity, blkerr, trBlkSizes, pdschIndicesInfo.G);
+
+        simThroughput = simThroughput + (~blkerr .* trBlkSizes);
+        maxThroughput = maxThroughput + trBlkSizes;
+
+
+        for cwIdx = 1:pdsch.NumCodewords
+            simThroughputTemp(cwIdx) = simThroughput(cwIdx);
+            maxThroughputTemp(cwIdx) = maxThroughput(cwIdx);
+            blerTemp(cwIdx) = blkerr(cwIdx) / max(1, numel(trBlkSizes(cwIdx)));
+        end
+
         if simParamLocal.DisplaySimulationInformation
             fprintf(' [%s]', status);
         end
-
-        % Treat any codeword error as a block error:
-        errorBlocksPar(snrIdx) = errorBlocksPar(snrIdx) + any(blkerr);
-        totalBlocksPar(snrIdx) = totalBlocksPar(snrIdx) + 1;
-
-        % Store values to calculate throughput
-        simThroughputPar(snrIdx) = simThroughputPar(snrIdx) + sum(~blkerr .* trBlkSizes);
-        maxThroughputPar(snrIdx) = maxThroughputPar(snrIdx) + sum(trBlkSizes);
 
         % CSI measurements and encoding 
         if csirsTransmission
@@ -436,15 +450,17 @@ parfor snrIdx = 1:numel(simParameters.SNRIn)
     CSIReportPar{snrIdx} = csiReports;
 
     % After finishing all slots for this SNR
-    blerPar(snrIdx) = errorBlocksPar(snrIdx) / totalBlocksPar(snrIdx);
+    simThroughputPar(snrIdx, :) = simThroughputTemp;
+    maxThroughputPar(snrIdx, :) = maxThroughputTemp;
+    blerPar(snrIdx, :) = blerTemp;
     
     % Display the results dynamically in the command window
     if (simParamLocal.DisplaySimulationInformation)
         fprintf('\n');
     end
-    fprintf('\nThroughput(Mbps) for %d frame(s) = %.4f\n',simParamLocal.NFrames,1e-6*simThroughputPar(snrIdx)/(simParamLocal.NFrames*10e-3));
-    fprintf('Throughput(%%) for %d frame(s) = %.4f\n',simParamLocal.NFrames,simThroughputPar(snrIdx)*100/maxThroughputPar(snrIdx));
-    fprintf('BLER for %d frame(s) = %.4f\n', simParameters.NFrames, blerPar(snrIdx));
+    % fprintf('\nThroughput(Mbps) for %d frame(s) = %.4f\n',simParamLocal.NFrames,1e-6*simThroughputPar(snrIdx)/(simParamLocal.NFrames*10e-3));
+    % fprintf('Throughput(%%) for %d frame(s) = %.4f\n',simParamLocal.NFrames,simThroughputPar(snrIdx)*100/maxThroughputPar(snrIdx));
+    % fprintf('BLER for %d frame(s) = %.4f\n', simParameters.NFrames, blerPar(snrIdx));
 
 end
 
@@ -453,8 +469,11 @@ maxThroughput = maxThroughputPar;
 simThroughput = simThroughputPar;
 CSIReport = CSIReportPar;
 
+throughputPercent = (simThroughput ./ maxThroughput) * 100;
+
 figure;
-plot(simParameters.SNRIn,simThroughput*100./maxThroughput,'o-.')
+plot(simParameters.SNRIn,throughputPercent(:,1),'o-.')
+plot(simParameters.SNRIn,throughputPercent(:,2),'o-.')
 
 xlabel('SNR (dB)'); ylabel('Throughput (%)'); grid on;
 title(sprintf('%s (%dx%d) / NRB=%d / SCS=%dkHz / CSI: %s', ...
@@ -474,7 +493,7 @@ simResults.maxThroughput = maxThroughput;
 simResults.bler         = bler;
 
 resultsFolder = './results/';
-filename = sprintf('simResult_HARQ_RIPMIrandom_perfectestimator_%s_%dTx_%dRx_%dLayer_%dHz.mat', ...
+filename = sprintf('simResult_HARQ_fixedRIPMIrandom_imperfectestimator_%s_%dTx_%dRx_%dLayer_%dHz.mat', ...
     simParameters.DelayProfile, simParameters.NTxAnts, simParameters.NRxAnts, simParameters.PDSCH.NumLayers, simParameters.MaximumDopplerShift);
 fullPath = fullfile(resultsFolder, filename);
 
